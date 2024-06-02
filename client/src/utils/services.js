@@ -26,3 +26,27 @@ export const postRequest = async (url,body) => {
 
     return data ;
 }
+
+
+//creat get request after chatsmesg api made
+export const getRequest = async (url) => {
+    const response = await fetch(url) 
+
+    const data = await response.json();
+
+    //if error
+    if(!response.ok){
+        let message = "An error occurred..";
+
+        //if message inside data 
+        if(data?.message){
+            message = data.message;
+        }
+    
+        return {error: true,message};
+
+    }
+
+    return data ;
+
+}

@@ -6,7 +6,7 @@ import {AuthContext} from "../context/AuthContext";
 const NavBar = () => {
     const {user,logoutUser} = useContext(AuthContext);
     return (
-    <Navbar bg="light" varient="dark" className="mb-4" style={{height:"3.75rem"}}>
+    <Navbar bg="dark" varient="dark" className="mb-4" style={{height:"3.75rem"}}>
         <Container>
             <h2><Link to="/" className="link-light text-decoration-none">ChatApp</Link></h2>
             <span className="text-warning">{user?.name}</span>
