@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useState } from "react";
 import { baseUrl,getRequest , postRequest} from "../utils/services";
+import { io } from "socket.io-client";
 
 export const ChatContext = createContext();
 
@@ -19,6 +20,55 @@ export const ChatContextProvider = ({children,user}) => {
 
     const [sendTextMessageError, setSendTextMessageError] = useState(null);
     const [newMessage,setNewMessage] = useState(null);
+    const [socket,setSocket] = useState(null);
+    const [onlineUsers,setOnlineUsers] = useState([]);
+
+    // console.log("OU:",onlineUsers);
+    //initial socket 
+    useEffect(()=>{
+        const newSocket  = io("http://localhost:4000");
+        setSocket(newSocket);
+
+        return () =>{
+            newSocket.disconnect();
+        }
+    },[user]);
+
+    // trigger event -- add online users
+    useEffect(() => {
+        if(socket==null)    return ;
+        socket.emit("addNewUser",user?._id);
+        socket.on("getOnlineUsers", (res) => {
+            setOnlineUsers(res);
+        });
+
+        return () => {
+            socket.off("getOnlineUsers");
+        };
+    },[socket])//if socket change new conn thus run it agin 
+
+    //send msg
+    useEffect(() => {
+        if(socket==null)    return ;
+        
+        const recipientId = currentChat?.members.find((id) => id !== user._id);
+        socket.emit("sendMessage",{...newMessage,recipientId});
+    },[newMessage]) 
+    
+    //receive msg
+    useEffect(() => {
+        if(socket==null)    return ;
+         
+        socket.on("getMessage", res => {
+            if(currentChat?._id !== res.chatId) return 
+            setMessages((prev) => [...prev,res]);
+        });
+
+        return () => {
+            socket.off("getMessage");
+        }
+        
+    },[socket,currentChat])//if socket change new conn thus run it agin 
 
     useEffect( () => {
         const getUsers = async () => {
@@ -119,6 +169,6 @@ export const ChatContextProvider = ({children,user}) => {
     }, []);
     return (<ChatContext.Provider value = {
         {userChats,isUserChatsLoading,userChatsError,potentialChats,createChat,
-        currentChat,updateCurrentChat,messages,isMessagesLoading,messagesError,sendTextMessage}
+        currentChat,updateCurrentChat,messages,isMessagesLoading,messagesError,sendTextMessage,onlineUsers}
     }>{children}</ChatContext.Provider>);
 }
