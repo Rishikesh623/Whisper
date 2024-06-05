@@ -22,6 +22,8 @@ export const ChatContextProvider = ({children,user}) => {
     const [newMessage,setNewMessage] = useState(null);
     const [socket,setSocket] = useState(null);
     const [onlineUsers,setOnlineUsers] = useState([]);
+    const [notifications,setNotifications] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
 
     // console.log("OU:",onlineUsers);
     //initial socket 
@@ -55,7 +57,7 @@ export const ChatContextProvider = ({children,user}) => {
         socket.emit("sendMessage",{...newMessage,recipientId});
     },[newMessage]) 
     
-    //receive msg
+    //receive msg & notifications
     useEffect(() => {
         if(socket==null)    return ;
          
@@ -63,9 +65,19 @@ export const ChatContextProvider = ({children,user}) => {
             if(currentChat?._id !== res.chatId) return 
             setMessages((prev) => [...prev,res]);
         });
+        socket.on("getNotification", (res) => {
+            const isChatOpen = currentChat?.members.some(id => id===res.senderId);
+            
+            if(isChatOpen){
+                setNotifications(prev => [{...res, isRead:true},...prev]);
+            }else{
+                setNotifications(prev => [res,...prev]);
+            }
+        });
 
         return () => {
             socket.off("getMessage");
+            socket.off("getNotifications");
         }
         
     },[socket,currentChat])//if socket change new conn thus run it agin 
@@ -90,6 +102,7 @@ export const ChatContextProvider = ({children,user}) => {
                 return !isChatCreated;
             });
             setPotentialChats(pChats);
+            setAllUsers(response);
         }
 
         getUsers();
@@ -114,7 +127,7 @@ export const ChatContextProvider = ({children,user}) => {
         }
 
         getUserChats();
-    },[user]);
+    },[user, notifications]);
 
     useEffect(() => {
         const getMessages = async () => {
@@ -167,8 +180,55 @@ export const ChatContextProvider = ({children,user}) => {
         setUserChats((prev) => [...prev,response]);
 
     }, []);
+
+    const markAllNotificationsAsRead = useCallback((notifications) => {
+        const mNotifications = notifications.map(n => { 
+            return {...n,isRead:true};
+        });
+        setNotifications(mNotifications);
+    },[]);
+
+    const markNotificationAsRead = useCallback((n,userChats,user,notifications) => {
+        //find chat to open 
+        const desiredChat = userChats.find((chat) => {
+            const chatMembers = [user._id , n.senderId];
+            const isDesiredChat = chat?.members.every((member) => {
+                return chatMembers.includes(member);
+            });
+            return isDesiredChat;
+        });
+
+        //read notifi..
+        const mnotifications = notifications.map((nt) =>{
+            if(n.senderId === nt.senderId){
+                return {...n,isRead:true};
+            } else
+                return nt;
+        })
+        updateCurrentChat(desiredChat);
+        setNotifications(mnotifications);
+
+    },[]);
+
+        //mark read in left 
+     const markThisUserNotificationAsRead = useCallback((thisUserNotifications,notifications)=>{
+        const mnotifications = notifications.map((nt) =>{
+            let notification;
+            thisUserNotifications.forEach( n => {
+                if(n.senderId === nt.senderId){
+                    notification =  {...n,isRead:true};
+                } else
+                    notification= nt;
+            });
+            return notification; 
+        });
+        setNotifications(mnotifications);
+
+     },[])
     return (<ChatContext.Provider value = {
         {userChats,isUserChatsLoading,userChatsError,potentialChats,createChat,
-        currentChat,updateCurrentChat,messages,isMessagesLoading,messagesError,sendTextMessage,onlineUsers}
+        currentChat,updateCurrentChat,messages,isMessagesLoading,messagesError,
+        sendTextMessage,onlineUsers,notifications,allUsers,markAllNotificationsAsRead,
+        markNotificationAsRead,markThisUserNotificationAsRead}
     }>{children}</ChatContext.Provider>);
 }

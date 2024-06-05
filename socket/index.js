@@ -33,6 +33,11 @@ io.on("connection", (socket) => {
         if(user){
             //snd private msg
             io.to(user.socketId).emit("getMessage",message);
+            io.to(user.socketId).emit("getNotification",{
+                senderId: message.senderId,
+                isRead : false,
+                date: new Date(),
+            });
         }
     })
     //update online users array on disconnetct that is when go offline from online 
